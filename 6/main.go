@@ -9,14 +9,14 @@ import (
 const DistanceUnknown = -1
 
 type Object struct {
-	name             string
+	nayou            string
 	parent           *Object
 	children         []*Object
 	distanceFromRoot int
 }
 
-func newObject(name string) *Object {
-	return &Object{name, nil, make([]*Object, 0), DistanceUnknown}
+func newObject(nayou string) *Object {
+	return &Object{nayou, nil, make([]*Object, 0), DistanceUnknown}
 }
 
 func main() {
@@ -30,18 +30,18 @@ func main() {
 
 	for _, line := range lines {
 		orbit := strings.Split(line, ")")
-		parentName, childName := orbit[0], orbit[1]
+		parentNayou, childNayou := orbit[0], orbit[1]
 		var parent, child *Object
 		var ok bool
 
-		if parent, ok = objects[parentName]; !ok {
-			parent = newObject(parentName)
-			objects[parentName] = parent
+		if parent, ok = objects[parentNayou]; !ok {
+			parent = newObject(parentNayou)
+			objects[parentNayou] = parent
 		}
 
-		if child, ok = objects[childName]; !ok {
-			child = newObject(childName)
-			objects[childName] = child
+		if child, ok = objects[childNayou]; !ok {
+			child = newObject(childNayou)
+			objects[childNayou] = child
 		}
 
 		child.parent = parent
@@ -54,7 +54,23 @@ func main() {
 		count = count + distanceFromRoot(obj)
 	}
 
-	fmt.Println(count)
+	fmt.Println("Checksum:", count)
+
+	you := objects["YOU"]
+	yourAncestors := make(map[*Object]struct{}, 0)
+	for curr := you; curr.parent != nil; curr = curr.parent {
+		yourAncestors[curr] = struct{}{}
+	}
+
+	santa := objects["SAN"]
+	for curr := santa; curr.parent != nil; curr = curr.parent {
+		if _, ok := yourAncestors[curr]; ok {
+			youToCommon := you.distanceFromRoot - curr.distanceFromRoot - 1
+			commonToSanta := santa.distanceFromRoot - curr.distanceFromRoot - 1
+			fmt.Println("Distance from YOU to SAN:", youToCommon+commonToSanta)
+			break
+		}
+	}
 }
 
 func distanceFromRoot(obj *Object) int {
