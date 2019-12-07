@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const (
@@ -68,15 +69,29 @@ func main() {
 		data[i] = res
 	}
 
-	possiblePhaseSettings := permutations([]int{4, 3, 2, 1, 0})
+	possiblePhaseSettings := permutations([]int{5, 6, 7, 8, 9})
 	maxOutputSignal := -1
 	var maxPhaseSettings []int
 
 	for _, phaseSettings := range possiblePhaseSettings {
-		signal := 0
-		for _, val := range phaseSettings {
-			signal = process(data, []int{val, signal})
+		channels := []chan int{make(chan int), make(chan int), make(chan int), make(chan int), make(chan int), make(chan int)}
+		wg := sync.WaitGroup{}
+		for i, val := range phaseSettings {
+			wg.Add(1)
+			go process(&wg, data, channels[i], channels[i+1])
 		}
+
+		go func() {
+			wg.Add(1)
+			channels[0] <- 0
+			channels[0] <- phaseSettings[0]
+			channels[1] <- phaseSettings[1]
+			channels[2] <- phaseSettings[2]
+			channels[3] <- phaseSettings[3]
+			channels[4] <- phaseSettings[4]
+		}()
+
+		wg.Wait()
 
 		if signal > maxOutputSignal {
 			maxOutputSignal = signal
@@ -131,7 +146,7 @@ func parseInstruction(instruction, index int, data []int) (opcode int, parameter
 	return
 }
 
-func process(data []int, input []int) int {
+func process(wg *sync.WaitGroup, data []int, input <-chan int, output chan<- int) {
 	inputIdx := 0
 	i := 0
 	for {
@@ -145,11 +160,11 @@ func process(data []int, input []int) int {
 			data[params[2]] = params[0] * params[1]
 			i = i + 4
 		case opcodeInput:
-			data[data[i+1]] = input[inputIdx]
+			data[data[i+1]] = <-input
 			inputIdx++
 			i = i + 2
 		case opcodeOutput:
-			return params[0]
+			output <- params[0]
 		case opcodeJumpIf:
 			if params[0] != 0 {
 				i = params[1]
@@ -177,7 +192,8 @@ func process(data []int, input []int) int {
 			}
 			i = i + 4
 		case opcodeEnd:
-			panic("???? ended")
+			wg.Done()
+			break
 		}
 	}
 }
