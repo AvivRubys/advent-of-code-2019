@@ -76,13 +76,14 @@ func main() {
 	for _, phaseSettings := range possiblePhaseSettings {
 		channels := []chan int{make(chan int), make(chan int), make(chan int), make(chan int), make(chan int), make(chan int)}
 		wg := sync.WaitGroup{}
-		for i, val := range phaseSettings {
+		for i := 0; i < len(phaseSettings); i++ {
 			wg.Add(1)
 			go process(&wg, data, channels[i], channels[i+1])
 		}
 
 		go func() {
 			wg.Add(1)
+			defer wg.Done()
 			channels[0] <- 0
 			channels[0] <- phaseSettings[0]
 			channels[1] <- phaseSettings[1]
@@ -91,10 +92,22 @@ func main() {
 			channels[4] <- phaseSettings[4]
 		}()
 
+		resultSignal := -999999999
+
+		go func() {
+			wg.Add(1)
+			defer wg.Done()
+
+			for output := range channels[5] {
+				resultSignal = output
+				channels[0] <- output
+			}
+		}()
+
 		wg.Wait()
 
-		if signal > maxOutputSignal {
-			maxOutputSignal = signal
+		if resultSignal > maxOutputSignal {
+			maxOutputSignal = resultSignal
 			maxPhaseSettings = phaseSettings
 		}
 	}
@@ -193,6 +206,7 @@ func process(wg *sync.WaitGroup, data []int, input <-chan int, output chan<- int
 			i = i + 4
 		case opcodeEnd:
 			wg.Done()
+			close(output)
 			break
 		}
 	}
