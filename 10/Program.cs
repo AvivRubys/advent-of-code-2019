@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,15 +6,6 @@ using System.Linq;
 // ReSharper disable once CheckNamespace
 namespace Ten
 {
-    static class Utils
-    {
-        public static int Gcd(int a, int b)
-        {
-            if (b == 0) return a;
-            return Gcd(b, a % b);
-        }
-    }
-    
     struct Point
     {
         public int X { get; set; }
@@ -25,27 +15,6 @@ namespace Ten
         {
             X = x;
             Y = y;
-        }
-        
-        public Point Reduce()
-        {
-            var gcd = Math.Abs(Utils.Gcd(X, Y));
-
-            if (gcd == 1) return this;
-
-            var newPoint = new Point(X / gcd, Y / gcd);
-            
-            if (X < 0)
-            {
-                newPoint.X = -Math.Abs(newPoint.X);
-            }
-            
-            if (Y < 0)
-            {
-                newPoint.Y = -Math.Abs(newPoint.Y);
-            }
-
-            return newPoint;
         }
 
         public double AngleTo(Point p)
@@ -59,39 +28,6 @@ namespace Ten
             return Math.Abs(diff.X) + Math.Abs(diff.Y);
         }
 
-        public override string ToString()
-        {
-            return $"({X},{Y})";
-        }
-        
-        public static bool operator ==(Point a, Point b)
-        {
-            return a.Equals(b);
-        }
-        
-        public static bool operator !=(Point a, Point b)
-        {
-            return !a.Equals(b);
-        }
-        
-        public static Point operator *(Point a, int factor)
-        {
-            return new Point
-            {
-                X = a.X * factor,
-                Y = a.Y * factor
-            };
-        }
-        
-        public static Point operator +(Point a, Point b)
-        {
-            return new Point
-            {
-                X = a.X + b.X,
-                Y = a.Y + b.Y
-            };
-        }
-        
         public static Point operator -(Point a, Point b)
         {
             return new Point
@@ -101,7 +37,6 @@ namespace Ten
             };
         }
 
-        
         public bool Equals(Point other)
         {
             return X == other.X && Y == other.Y;
@@ -116,53 +51,34 @@ namespace Ten
         {
             return ToString().GetHashCode();
         }
+        
+        public override string ToString()
+        {
+            return $"({X},{Y})";
+        }
     }
 
     class Program
     {
-        static int VisibleFrom(Point asteroid, ICollection<Point> asteroids, int height, int width)
-        {
-            var isHidden = new bool[height,width];
-
-            foreach (var otherAstroid in asteroids)
-            {
-                if (asteroid == otherAstroid) continue;
-                var distance = (otherAstroid - asteroid).Reduce();
-
-                var factor = 1;
-                while (true)
-                {
-                    var unseenPoint = otherAstroid + distance * factor;
-                    if (unseenPoint.X >= width || unseenPoint.X < 0 ||
-                        unseenPoint.Y >= height || unseenPoint.Y < 0) break;
-                    
-                    isHidden[unseenPoint.X, unseenPoint.Y] = true;
-                    factor++;
-                }
-            }
-
-            return asteroids.Count(a => !isHidden[a.X, a.Y]) - 1;
-        }
-
         static void Main()
         {
             var input = File.ReadAllLines("./input.txt");
-            var height = input.Length;
-            var width = input[0].Length;
             var asteroids = input.SelectMany((row, y) => row.Select((val, x) => new {val, point = new Point(x, y)}))
-                .Where(p => p.val == '#').Select(p => p.point).ToHashSet();
+                .Where(p => p.val == '#')
+                .Select(p => p.point)
+                .ToArray();
 
-            var maxAsteroid = asteroids.Select(asteroid => new {
+            var maxAsteroid = asteroids.Select(asteroid => new
+            {
                 Asteroid = asteroid,
-                Count = VisibleFrom(asteroid, asteroids, height, width)
-            }).Aggregate((max, val) => val.Count > max.Count ? val : max);
-            
+                Count = asteroids.Select(asteroid.AngleTo).Distinct().Count()
+            }).Aggregate((p, c) => c.Count > p.Count ? c : p);
+
             Console.WriteLine(maxAsteroid);
-            
+
             // Part 2
             var rootPoint = maxAsteroid.Asteroid;
             var sortedAngles = asteroids.Select(asteroid => (asteroid, rootPoint.AngleTo(asteroid)))
-                .Where(tup => asteroids.Contains(tup.Item1))
                 .GroupBy(tup => tup.Item2, tup => tup.Item1)
                 .OrderByDescending(grp => grp.Key)
                 .Select(grp => new Queue<Point>(grp.OrderBy(p => rootPoint.DistanceFrom(p))))
